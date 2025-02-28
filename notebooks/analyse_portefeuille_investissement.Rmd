@@ -1,0 +1,146 @@
+---
+title: "analyse_portefeuille_investissement"
+author: "H. Joo"
+date: "2025-02-28"
+output: html_document
+---
+## 📌 Introduction
+
+Dans un monde où les marchés financiers évoluent constamment, **prendre des décisions d’investissement éclairées** est essentiel pour optimiser un portefeuille.  
+
+Ce projet vise à **analyser la performance de différentes actions** (Apple, Microsoft, Tesla) afin de recommander une **allocation optimale du capital**.  
+
+___
+
+```{r setup, include=FALSE}
+library(knitr)
+library(rmarkdown)
+
+knitr::opts_knit$set(root.dir = "C:/Users/teo11/PROJETS/analyse_portefeuille_investissement")
+
+```
+
+```{r load_data, echo=TRUE}
+# Charger les bibliothèques
+library(tidyverse)
+
+# Charger les données
+data <- read.csv("data/bourse.csv")
+
+# Convertir la colonne Date en format Date
+data$Date <- as.Date(data$Date)
+
+# Afficher les premières lignes
+head(data)
+```
+```{r clean_data, echo=TRUE}
+# Vérifier les valeurs manquantes
+sum(is.na(data))
+
+# Trier les données par Date et Ticker
+data <- data %>% arrange(Date, Ticker)
+
+# Calculer les rendements quotidiens
+data <- data %>%
+  group_by(Ticker) %>%
+  mutate(Rendement = (Prix - lag(Prix)) / lag(Prix)) %>%
+  drop_na()
+
+# Afficher un aperçu des données transformées
+head(data)
+```
+
+```{r price_plot, echo=FALSE}
+# Charger ggplot2
+library(ggplot2)
+
+# Graphique de l’évolution des prix
+ggplot(data, aes(x=Date, y=Prix, color=Ticker)) +
+  geom_line() +
+  labs(title="Évolution du prix des actions", x="Date", y="Prix") +
+  theme_minimal()
+```
+
+```{r rendement_plot, echo=FALSE}
+ggplot(data, aes(x=Date, y=Rendement, color=Ticker)) +
+  geom_line() +
+  labs(title="Rendements quotidiens des actions", x="Date", y="Rendement") +
+  theme_minimal()
+```
+
+## Interprétation du résultat
+Plus les variations sont grandes, plus l’action est volatile
+
+___
+
+```{r summary_table, echo=FALSE}
+# Calcul du Ratio de Sharpe
+taux_sans_risque <- 0.005
+sharpe_ratio <- data %>%
+  group_by(Ticker) %>%
+  summarise(
+    Mean_Rendement = mean(Rendement, na.rm=TRUE),
+    Sharpe = (Mean_Rendement - taux_sans_risque) / sd(Rendement, na.rm=TRUE)
+  )
+
+# Allocation du portefeuille
+allocation <- sharpe_ratio %>%
+  mutate(Allocation = Sharpe / sum(Sharpe) * 100)
+
+library(kableExtra)
+
+# Afficher le tableau formaté avec un meilleur design
+knitr::kable(allocation, caption="Allocation Optimale du Portefeuille") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+```{r pie_chart, echo=FALSE}
+# Charger ggplot2
+library(ggplot2)
+
+# Ajouter une colonne pour afficher les pourcentages formatés
+allocation$label <- paste0(round(allocation$Allocation, 1), "%")
+
+# Créer un camembert avec les pourcentages affichés
+ggplot(allocation, aes(x="", y=Allocation, fill=Ticker)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  geom_text(aes(label=label), position=position_stack(vjust=0.5), color="white", size=5) +
+  labs(title="Répartition Optimale du Portefeuille") +
+  theme_void()
+```
+
+## 📊 Interprétation des résultats
+
+ **Ratio de Sharpe**  
+- **Apple (AAPL) : 3.30** →  Meilleur rendement ajusté au risque  
+- **Microsoft (MSFT) : 2.20** → Correct mais plus volatil  
+- **Tesla (TSLA) : 1.02** →  Risque élevé avec faible rendement  
+
+ **Allocation recommandée du portefeuille**  
+- **Apple : 50.6%** 
+- **Microsoft : 33.7%** ⚖  
+- **Tesla : 15.6%** ⚠  
+
+ **Recommandation** :  
+Il est préférable d’investir **davantage sur Apple**, car c'est l’action **la plus rentable et stable**. 
+
+**Tesla doit être limité** car il est trop risqué. 
+
+___
+
+## Conclusion et prochaines étapes
+
+### Résumé des points clés
+
+**Apple** est l’action la plus rentable et équilibrée
+
+**Microsoft** est une alternative viable mais plus volatile
+
+**Tesla** doit être limité dans le portefeuille
+
+## Prochaines étapes
+
+**Comparer avec d’autres indices boursiers** (S&P 500, Nasdaq)
+
+**Tester d’autres classes d’actifs** (crypto, obligations)
+
